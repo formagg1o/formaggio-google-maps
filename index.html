@@ -1,0 +1,356 @@
+
+<!DOCTYPE html>
+<html lang="en"><head><title>Formagg.io: </title>
+<meta name="charset" content="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>window.API_URL = 'api.formagg.io';</script>
+<link rel="stylesheet" href="/assets/css/bootstrap.css">
+<link rel="stylesheet" href="/assets/css/jasny-bootstrap.css"><link rel="stylesheet" href="/assets/css/custom.css">
+<style>
+body { 
+  padding-top: 60px;
+  padding-bottom: 40px;
+}
+
+.map_canvas { 
+  width: 520px !important; 
+  height: 300px !important;
+  margin: 10px 0 10px 0 !important;
+  border: 1px solid #DFDFDF !important;
+}
+
+.map_canvas img {
+  max-width: none;
+  width: auto;
+  display: inline;
+}
+
+.map_canvas:after {
+  content: "Type in an address in the input above.";
+  padding-top: 170px;
+  display: block;
+  text-align: center;
+  font-size: 2em;
+  color: #999;
+  }
+</style>
+
+<link rel="stylesheet" href="/assets/css/bootstrap-responsive.css">
+<link rel="stylesheet" href="/assets/css/jasny-bootstrap-responsive.css">
+
+<script src="http://maps.googleapis.com/maps/api/js?sensor=false&amp;libraries=places"></script>
+<script src="/assets/js/jquery.js"></script>
+<script src="/assets/vendor/geocoder/jquery.geocomplete.js"></script>
+<script src="/assets/js/jquery.cookie.js"></script>
+<script src="/assets/js/bootstrap-typeahead.js"></script>
+<script src="/assets/js/bootstrap-dropdown.js"></script>
+<script src="/assets/js/bootstrap-collapse.js"></script>
+<script src="/assets/js/bootstrap-tab.js"></script>
+<script src="/assets/js/bootstrap-affix.js"></script>
+<script src="/assets/js/bootstrap-modal.js"></script>
+<script src="/assets/js/bootstrap-carousel.js"></script>
+<script src="/assets/js/bootstrap-tooltip.js"></script>
+<script src="/assets/js/underscore.js"></script>
+
+<style>
+  .map_canvas_1 { 
+    width: 100%; 
+    height: 600px; 
+    margin: 0;
+    border: 1px solid #000;
+  }
+
+  .map_canvas_1 img { max-width: none; }
+  .map_canvas_1:after{
+    content: "Type in an address in the input above.";
+    padding-top: 170px;
+    display: block;
+    text-align: center;
+    font-size: 2em;
+    color: #999;
+  }
+</style>
+
+</head>
+
+<body>
+  <div class="navbar navbar-inverse navbar-fixed-top">
+    <div class="navbar-inner">
+      <div class="container">
+      <button data-toggle="collapse" data-target=".nav-collapse" class="btn btn-navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span></button>
+        <a href="/" class="brand hiddenh-phone">Formagg.io Map</a>
+       </div>
+     </div>
+  </div>
+                    
+<div style="min-height: 600px;" class="container">
+
+                    <script>var map;
+var image = 'img/';
+var bounds = new google.maps.LatLngBounds();
+var loc;
+var markersArray = {};
+
+$(function(){
+
+    var mapOptions = { 
+      mapTypeId: google.maps.MapTypeId.ROADMAP
+    };
+    map =  new google.maps.Map(document.getElementById("mymap"), mapOptions);
+    
+    function clearOverlays() {
+      for (var m in markersArray) {
+        console.log(markersArray[m])
+        // markersArray[m].setMap(null);
+      }
+      markersArray = {}
+    }
+    
+    google.maps.event.addListener(map, 'bounds_changed', function() {
+      var bounds =  map.getBounds();
+      
+      var view = [ bounds.getSouthWest().lng(), bounds.getSouthWest().lat(), bounds.getNorthEast().lng(), bounds.getNorthEast().lat() ];
+      
+      $.get('http://staging.api.formagg.io/maker/search?size=500&fields=location country name&geo=' + view.join(','), function(data) {
+      
+          clearOverlays();
+          
+          data.results.forEach(function(rec) {
+            if (rec.location) {
+              if (rec.location.coordinates) {
+                if (!markersArray[rec._id]) {
+                  var entry = rec.location.coordinates;
+                  
+                  var nloc = new google.maps.LatLng( entry[1].toString(), entry[0].toString() );
+                  bounds.extend(nloc);
+                  
+                  var marker = addMarker(nloc, rec.name, 'active');
+                  markersArray[rec._id] = marker;         
+                }
+              }
+            }
+      });
+      
+        function addMarker(location, name, active) {   
+            var marker = new google.maps.Marker({
+                position: location,
+                map: map,
+                title: name,
+                labelContent: 'A',
+                labelAnchor: new google.maps.Point(3, 30),
+                labelClass: "labels", // the CSS class for the label
+            });
+            
+            google.maps.event.addListener(marker, 'click', function() {
+            
+              var infowindow = new google.maps.InfoWindow({
+                content: name
+              });
+              
+              infowindow.open(map,marker);
+            });
+            
+            google.maps.event.addListener(marker,'click',function() {
+               map.setZoom(9);
+               map.setCenter(marker.getPosition());
+            });
+            
+            
+            return marker;
+        }
+        
+        // No Need to use this.
+        // map.fitBounds(bounds);
+        // map.panToBounds(bounds); 
+      });
+      
+    });
+    
+    
+    $("#geocomplete").geocomplete({})
+      .bind("geocode:result", function(event, result){
+        var vp = result.geometry.viewport;
+        var view = [ vp.getSouthWest().lng(), vp.getSouthWest().lat(), vp.getNorthEast().lng(), vp.getNorthEast().lat() ];
+        
+        var bounds = new google.maps.LatLngBounds();
+        
+        // First Point
+        var myLatLng = new google.maps.LatLng( vp.getSouthWest().lat(), vp.getSouthWest().lng() );
+        bounds.extend(myLatLng);
+        
+        // Second Point
+        var myLatLng = new google.maps.LatLng( vp.getNorthEast().lat(), vp.getNorthEast().lng() );
+        bounds.extend(myLatLng);
+        
+        map.fitBounds(bounds);
+        map.panToBounds(bounds); 
+        map.setZoom(6);
+        
+        return;
+        
+        $.get('http://staging.api.formagg.io/maker/search?size=500&fields=location country name&geo=' + view.join(','), function(data) {
+        
+            clearOverlays();
+            
+            data.results.forEach(function(rec) {
+              if (rec.location) {
+                if (rec.location.coordinates) {
+                  if (!markersArray[rec._id]) {
+                    var entry = rec.location.coordinates;
+                    
+                    var nloc = new google.maps.LatLng( entry[1].toString(), entry[0].toString() );
+                    bounds.extend(nloc);
+                    
+                    var marker = addMarker(nloc, rec.name, 'active');
+                    markersArray[rec._id] = marker;         
+                  }
+                }
+              }
+        });
+        
+          function addMarker(location, name, active) {   
+              var marker = new google.maps.Marker({
+                  position: location,
+                  map: map,
+                  title: name,
+                  // animation: google.maps.Animation.DROP,
+                  // status: active,
+                  labelContent: 'A',
+                  labelAnchor: new google.maps.Point(3, 30),
+                  labelClass: "labels", // the CSS class for the label
+              });
+              
+              google.maps.event.addListener(marker, 'click', function() {
+              
+                var infowindow = new google.maps.InfoWindow({
+                  content: name
+                });
+                
+                infowindow.open(map,marker);
+              });
+              
+              google.maps.event.addListener(marker,'click',function() {
+                 map.setZoom(9);
+                 map.setCenter(marker.getPosition());
+              });
+              
+              
+              return marker;
+          }
+          
+          map.fitBounds(bounds);
+          map.panToBounds(bounds); 
+        });
+        
+      });
+      
+    $("#find").click(function(){
+      $("#geocomplete").trigger("geocode");
+    });
+    
+    $("#geocomplete").trigger("geocode");
+});
+</script>
+
+<div class="row">
+  <div class="span11"><h2>Cheese Map</h2>
+    <form class="form-inline">Where do you want to see? <input id="geocomplete" type="text" placeholder="Type in an address" value="Ireland"><button id="find" type="button" value="find" class="btn">Find</button>
+    </form>
+    </div>
+    </div>
+    <div class="row">
+      <div class="span11">
+        <div id="mymap" class="map_canvas_1"></div></div></div></div>
+
+<footer class="container hidden-phone">
+  <hr>
+  <p>&copy Formagg.io 2013, v. 1.7.0 Powered by the  <a href="http://api.formagg.io">api.formagg.io</a> </p>
+</footer>
+
+</body>
+
+<script>$(function(){
+
+  $("input[name='cheesesearch']").typeahead({
+    updater: function(item, id) {
+      document.location='/detail/' + id;
+      return item;
+    },
+    ajax: {
+      host: 'api.formagg.io',
+      url: 'http://api.formagg.io/cheese/search',
+      timeout: 500,
+      displayField: 'value',
+      triggerLength: 1,
+      method: 'get',
+      // loadingClass: 'loading-circle',
+      preDispatch: function(query) {
+        return { field: 'name', term: query, pagesize: 10 }
+      },
+      preProcess: function(data) {
+        if (data.success === false) return false;
+        return data;
+      }
+    }
+  });
+  
+  $('#myLogin').on('show', function() {
+    $('.gotoInput').val(window.location.pathname || '/');
+  });
+  
+  $('#myLogin').on('shown', function() {
+    $('#inputUsername').focus();
+  });
+  
+  // Once shown set the focus.
+  $('#myModal').on('shown', function() {
+    $('#geocomplete').focus();
+  });
+  
+  $('#myModal').on('show', function () {
+  
+    if (!window.lastLoc) window.lastLoc = {};
+    
+    var options = {
+      map: '.map_canvas',
+      location: ' ',
+      markerOptions: {
+        draggable: true
+      }
+    };
+    
+    $('#geocomplete').geocomplete(options)
+      .bind("geocode:dragged", function(event, latLng){
+        // Store the drag and drop value.
+        window.lastLoc.lat = latLng.lat();
+        window.lastLoc.lng = latLng.lng();
+      })
+      .bind('geocode:result', function(event, result){
+        window.lastLoc.lat = result.geometry.location.lat();
+        window.lastLoc.lng = result.geometry.location.lng();
+        window.lastLoc.address = result.formatted_address;
+      })
+      .bind('geocode:error', function(event, status){
+        // $.log("ERROR: " + status);
+        alert('Something went egg shaped with your location.')
+      });
+      
+    $('.useLocation').click(function() {
+       // Set the cookie location.
+       $.cookie("location", JSON.stringify(window.lastLoc));
+       
+       // console.log('Cookie Location', $.cookie("location") );
+       $('#myModal').modal('hide');
+    });
+    
+    $('#find').click(function(){
+      $('#geocomplete').trigger('geocode');
+    });
+  });
+  
+});
+
+</script></html> 
